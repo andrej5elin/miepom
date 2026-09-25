@@ -122,7 +122,8 @@ class ParticleSimulator:
         return self.scattering_coefficients
 
     def compute_simulator_mask(self, simulator_na):
-        self.simulator_mask = xp.array(self.reciprocal_plane.get_aperture(simulator_na))
+        # must be a numpy array to be used as a mask for the scattering vectors, which are also numpy arrays
+        self.simulator_mask = np.array(self.reciprocal_plane.get_aperture(simulator_na))
         return self.simulator_mask
     
     def compute_modal_coefficient(self):
