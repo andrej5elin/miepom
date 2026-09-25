@@ -8,7 +8,6 @@ globals()["xp"] = np
 
 def set_backend(xp):
     globals()["xp"] = xp
-
 try:
     import scipy as sp
     USESCIPY = True
