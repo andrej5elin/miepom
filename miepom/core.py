@@ -9,4 +9,4 @@ from .pom import *
 from .sensor import  *
 from .backend import *
 
-from .config import mx_eval as eval
+from .config import get_array

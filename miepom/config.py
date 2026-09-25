@@ -185,3 +185,19 @@ if VERBOSE:
 
     print("-----------------------------------------------------------------------")
 
+def get_array(x):
+    """Convert array to numpy array if it is a cupy or mlx array, otherwise return the input as is. 
+    This is useful for converting arrays to numpy for further processing or visualization."""
+    if xp.__name__ == 'mlx.core':
+        # Evaluate the eoutput using mlx.eval to ensure it is a computed array in the mlx backend. 
+        # This is necessary because mlx uses lazy evaluation, and we want to ensure that the result is a concrete array.
+        mx_eval(x)
+        return np.asarray(x)
+    elif xp.__name__ == 'cupy':
+        return x.get()  # Convert CuPy array to NumPy array
+    else:
+        #try conversion to numpy array, if it fails, return the input as is
+        try:
+            return np.asarray(x)
+        except Exception:
+            return x
