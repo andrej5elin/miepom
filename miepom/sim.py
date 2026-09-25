@@ -54,13 +54,13 @@ def compute_e_field(mask, modes, out = None):
     return out
 
 class ParticleSimulator:
-    def __init__(self, microscope, particles, simulator_na = None, focal_plane = 200e-6, monodisperse_particles = False):
+    def __init__(self, microscope, particles, simulator_numerical_aperture = None, focal_plane = 200e-6, monodisperse_particles = False):
         self.particles = particles
         self.microscope = microscope
         self.reciprocal_plane = microscope.get_reciprocal_plane()
         self.wavelength = self.reciprocal_plane.wavelength
         self.field_plane = microscope.get_object_plane()
-        simulator_na = self.particles.n_medium if simulator_na is None else simulator_na
+        simulator_na = self.particles.n_medium if simulator_numerical_aperture is None else simulator_numerical_aperture
         self.compute_simulator_mask(simulator_na)
         self.compute_scattering_vectors()
         self.monodisperse_particles = monodisperse_particles
@@ -121,9 +121,9 @@ class ParticleSimulator:
         self.scattering_coefficients = self.particles.compute_scattering_coefficients(sf = self.scattering_vectors[self.simulator_mask], wavelength = self.wavelength, monodisperse = self.monodisperse_particles)
         return self.scattering_coefficients
 
-    def compute_simulator_mask(self, simulator_na):
+    def compute_simulator_mask(self, simulator_numerical_aperture):
         # must be a numpy array to be used as a mask for the scattering vectors, which are also numpy arrays
-        self.simulator_mask = np.array(self.reciprocal_plane.get_aperture(simulator_na))
+        self.simulator_mask = np.array(self.reciprocal_plane.get_aperture(simulator_numerical_aperture))
         return self.simulator_mask
     
     def compute_modal_coefficient(self):
@@ -155,7 +155,7 @@ class ParticleSimulator:
         field = self.compute_reciprocal_field()
         return self.microscope.compute_image(field, fft_input = True)
 
-def create_simulator(microscope, particles, simulator_na = None, focal_plane = 200e-6, monodisperse_particles = False):
-    return ParticleSimulator(microscope=microscope, particles=particles, simulator_na=simulator_na, focal_plane=focal_plane, monodisperse_particles=monodisperse_particles)    
+def create_simulator(microscope, particles, simulator_numerical_aperture = None, focal_plane = 200e-6, monodisperse_particles = False):
+    return ParticleSimulator(microscope=microscope, particles=particles, simulator_numerical_aperture=simulator_numerical_aperture, focal_plane=focal_plane, monodisperse_particles=monodisperse_particles)    
 
 __all__ = ["ParticleSimulator", "create_simulator"]
