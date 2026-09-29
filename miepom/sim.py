@@ -1,6 +1,6 @@
 from . import linalg as linalg
 import numpy as np
-from .config import mx_compile, fdtype, cdtype
+from .config import mx_compile, fdtype, cdtype, get_array
 
 # Set the default linear algebra backend to numpy so that we can compile and run numba functions correctly.
 globals()["xp"] = np
@@ -77,6 +77,11 @@ class ParticleSimulator:
         self.y0 = 0
         self.z0 = 0
 
+        self.modes = None
+        self.modes_dof = None
+        self.dof = np.inf
+        self.dof_mask = None
+
     @property
     def sigma_k(self):
         return xp.array(self.microscope.light_source.sigma/self.microscope.light_source.wavenumber, dtype=fdtype())
@@ -91,14 +96,51 @@ class ParticleSimulator:
     @property
     def x(self):
         return xp.array(self.particles.coordinates[:,0] -  self.x0, dtype=fdtype()) 
+    
+    @property
+    def x_dof(self):
+        if self.dof_mask is not None:
+            return xp.array(self.particles.coordinates[:,0][self.dof_mask] -  self.x0, dtype=fdtype())
+        else:
+            return self.x
 
     @property
     def y(self):
         return xp.array(self.particles.coordinates[:,1] -  self.y0, dtype=fdtype()) 
 
     @property
+    def y_dof(self):
+        if self.dof_mask is not None:
+            return xp.array(self.particles.coordinates[:,1][self.dof_mask] -  self.y0, dtype=fdtype())
+        else:
+            return self.y
+
+    @property
     def z(self):
         return xp.array(self.particles.coordinates[:,2] -  self.z0, dtype=fdtype()) 
+    
+    @property
+    def z_dof(self):
+        if self.dof_mask is not None:
+            return xp.array(self.particles.coordinates[:,2][self.dof_mask] -  self.z0, dtype=fdtype())
+        else:
+            return self.z
+        
+    def set_dof(self, dof = np.inf):
+        if self.modes is None:
+            raise ValueError("Modes have not been computed yet.")
+        if dof == np.inf:
+            self.modes_dof = self.modes
+            self.dof_mask = None
+        else:
+            mask = xp.abs(self.z) <= dof
+            modes_np = get_array(self.modes)
+            self.modes_dof = xp.array(modes_np[mask])
+            self.dof_mask = mask
+        self.dof = dof  
+
+    def get_dof(self):
+        return self.dof 
 
     def set_focal_point(self, x =0, y = 0, z = 0):
         self.x0 = x
@@ -128,6 +170,7 @@ class ParticleSimulator:
     
     def compute_modal_coefficient(self):
         self.modes = xp.array(self.scattering_coefficients / self.particles.n_medium * self.reciprocal_plane.pixel_size / self.field_plane.pixel_size, dtype=cdtype())
+        self.set_dof(self.dof)
         return self.modes
 
     def compute_lut(self):
@@ -137,9 +180,9 @@ class ParticleSimulator:
 
     def compute_reciprocal_field(self):
         if self.monodisperse_particles:
-            modes = propagate_modes_mono(self.modes,self.x,self.y,self.z,self.k,self.kx,self.ky,self.kz,self.sigma_q,self.sigma_k)
+            modes = propagate_modes_mono(self.modes_dof,self.x_dof,self.y_dof,self.z_dof,self.k,self.kx,self.ky,self.kz,self.sigma_q,self.sigma_k)
         else:
-            modes = propagate_modes(self.modes,self.x,self.y,self.z,self.k,self.kx,self.ky,self.kz,self.sigma_q,self.sigma_k)
+            modes = propagate_modes(self.modes_dof,self.x_dof,self.y_dof,self.z_dof,self.k,self.kx,self.ky,self.kz,self.sigma_q,self.sigma_k)
         field = compute_e_field(self.simulator_mask,modes) * self.microscope.light_source.intensity**0.5
         return field
 

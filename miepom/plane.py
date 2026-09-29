@@ -122,6 +122,21 @@ class PlotCoordinates(Coordinates):
         self.set_ylim(ax,ylim)
 
         return im
+
+    def imshow(self, data, ax = None, **kwargs):
+        data = self._prepare_data(data)
+        
+        if ax is None:
+            import matplotlib.pyplot as plt
+            ax = plt.gca()
+            
+        d = self.get_imshow_kwargs()
+        d.update(kwargs)
+
+        extent = [-self.height/2*1000, self.height/2*1000, -self.width/2*1000, self.width/2*1000]  # width and height in mm
+        ax.imshow(data, extent=extent,  **d)
+        ax.set_xlabel("x (mm)")
+        ax.set_ylabel("y (mm)")
     
 class FieldPlane(PlotCoordinates):
     def get_r_phi(self):
