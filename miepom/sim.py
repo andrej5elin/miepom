@@ -54,7 +54,7 @@ def compute_e_field(mask, modes, out = None):
     return out
 
 class ParticleSimulator:
-    def __init__(self, microscope, particles, simulator_numerical_aperture = None, focal_plane = 200e-6, monodisperse_particles = False):
+    def __init__(self, microscope, particles, simulator_numerical_aperture = None, focal_plane = 0, simulator_dof = np.inf, monodisperse_particles = False):
         self.particles = particles
         self.microscope = microscope
         self.reciprocal_plane = microscope.get_reciprocal_plane()
@@ -64,8 +64,7 @@ class ParticleSimulator:
         self.compute_simulator_mask(simulator_na)
         self.compute_scattering_vectors()
         self.monodisperse_particles = monodisperse_particles
-        self.set_focal_plane(focal_plane)
-
+        
         self.object_plane_intensity = xp.array(self.microscope.light_source.intensity * self.microscope.magnification**2)
 
         self.kx = xp.array((self.scattering_vectors[...,0])[self.simulator_mask], dtype=fdtype())
@@ -78,9 +77,9 @@ class ParticleSimulator:
         self.z0 = 0
 
         self.modes = None
-        self.modes_dof = None
-        self.dof = np.inf
-        self.dof_mask = None
+    
+        # adjustment of focal plane also computes the simulator depth of field mask
+        self.set_focal_plane(focal_plane, dof = simulator_dof)
 
     @property
     def sigma_k(self):
@@ -99,8 +98,8 @@ class ParticleSimulator:
     
     @property
     def x_dof(self):
-        if self.dof_mask is not None:
-            return xp.array(self.particles.coordinates[:,0][self.dof_mask] -  self.x0, dtype=fdtype())
+        if self.simulator_dof_mask is not None:
+            return xp.array(self.particles.coordinates[:,0][self.simulator_dof_mask] -  self.x0, dtype=fdtype())
         else:
             return self.x
 
@@ -110,8 +109,8 @@ class ParticleSimulator:
 
     @property
     def y_dof(self):
-        if self.dof_mask is not None:
-            return xp.array(self.particles.coordinates[:,1][self.dof_mask] -  self.y0, dtype=fdtype())
+        if self.simulator_dof_mask is not None:
+            return xp.array(self.particles.coordinates[:,1][self.simulator_dof_mask] -  self.y0, dtype=fdtype())
         else:
             return self.y
 
@@ -121,37 +120,47 @@ class ParticleSimulator:
     
     @property
     def z_dof(self):
-        if self.dof_mask is not None:
-            return xp.array(self.particles.coordinates[:,2][self.dof_mask] -  self.z0, dtype=fdtype())
+        if self.simulator_dof_mask is not None:
+            return xp.array(self.particles.coordinates[:,2][self.simulator_dof_mask] -  self.z0, dtype=fdtype())
         else:
             return self.z
         
-    def set_dof(self, dof = np.inf):
-        if self.modes is None:
-            raise ValueError("Modes have not been computed yet.")
-        if dof == np.inf:
-            self.modes_dof = self.modes
-            self.dof_mask = None
+    def set_simulator_dof(self, dof = np.inf):
+        if self.modes is not None:
+            if dof == np.inf:
+                self.modes_dof = self.modes
+                self.simulator_dof_mask = None
+            else:
+                mask = xp.abs(self.z) <= dof/2.
+                modes_np = get_array(self.modes)
+                self.modes_dof = xp.array(modes_np[mask])
+                self.simulator_dof_mask = mask
         else:
-            mask = xp.abs(self.z) <= dof
-            modes_np = get_array(self.modes)
-            self.modes_dof = xp.array(modes_np[mask])
-            self.dof_mask = mask
-        self.dof = dof  
+            self.simulator_dof_mask = None
+            self.modes_dof = None
+        self.simulator_dof = dof  
 
-    def get_dof(self):
-        return self.dof 
+    def get_simulator_dof(self):
+        return self.simulator_dof
 
-    def set_focal_point(self, x =0, y = 0, z = 0):
+    def set_focal_point(self, x =0, y = 0, z = 0, dof = None):
         self.x0 = x
         self.y0 = y
         self.z0 = z
+        if dof is not None:
+            self.set_simulator_dof(dof)
+        else:
+            self.set_simulator_dof(self.simulator_dof)
 
     def get_focal_point(self):
         return self.x0, self.y0, self.z0
 
-    def set_focal_plane(self, focal_plane):
+    def set_focal_plane(self, focal_plane, dof = None):
         self.z0 = focal_plane
+        if dof is not None:
+            self.set_simulator_dof(dof)
+        else:
+            self.set_simulator_dof(self.simulator_dof)
 
     def get_focal_plane(self):
         return self.z0
@@ -170,12 +179,14 @@ class ParticleSimulator:
     
     def compute_modal_coefficient(self):
         self.modes = xp.array(self.scattering_coefficients / self.particles.n_medium * self.reciprocal_plane.pixel_size / self.field_plane.pixel_size, dtype=cdtype())
-        self.set_dof(self.dof)
+        self.set_simulator_dof(self.simulator_dof)
         return self.modes
 
     def compute_lut(self):
         self.compute_scattering_coefficients()
         self.compute_modal_coefficient()
+        if self.simulator_dof is not None:
+            self.set_simulator_dof(self.simulator_dof)
         return self.simulator_mask, self.modes
 
     def compute_reciprocal_field(self):
@@ -198,7 +209,7 @@ class ParticleSimulator:
         field = self.compute_reciprocal_field()
         return self.microscope.compute_image(field, fft_input = True)
 
-def create_simulator(microscope, particles, simulator_numerical_aperture = None, focal_plane = 200e-6, monodisperse_particles = False):
-    return ParticleSimulator(microscope=microscope, particles=particles, simulator_numerical_aperture=simulator_numerical_aperture, focal_plane=focal_plane, monodisperse_particles=monodisperse_particles)    
+def create_simulator(microscope, particles, simulator_numerical_aperture = None, focal_plane = 200e-6, simulator_dof = np.nan, monodisperse_particles = False):
+    return ParticleSimulator(microscope=microscope, particles=particles, simulator_numerical_aperture=simulator_numerical_aperture, focal_plane=focal_plane, simulator_dof=simulator_dof, monodisperse_particles=monodisperse_particles)    
 
 __all__ = ["ParticleSimulator", "create_simulator"]

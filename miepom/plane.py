@@ -56,6 +56,17 @@ class Coordinates:
         return r, phi
         
 class PlotCoordinates(Coordinates):
+    imshow_units = "mm"
+    unit_scale = {"m": 1, "cm": 1e-2, "mm": 1e-3, "um": 1e-6, "nm": 1e-9}
+
+    def get_unit_scale(self):
+        return self.unit_scale[self.imshow_units]
+
+    def set_imshow_units(self, units):
+        if units not in self.unit_scale:
+            raise ValueError(f"Invalid display units: {units}")
+        self.imshow_units = units
+
     def _prepare_data(self,data):
         if data.shape != self.shape:
             raise ValueError("Invalid data shape.")
@@ -96,8 +107,8 @@ class PlotCoordinates(Coordinates):
         
     def _set_labels(self,ax):
         
-        ax.set_xlabel("$x [mm]$")
-        ax.set_ylabel("$y [mm]$")   
+        ax.set_xlabel(f"$x [{self.imshow_units}]$")
+        ax.set_ylabel(f"$y [{self.imshow_units}]$")   
 
     def imshow(self,data, ax = None, nticks = (5,5), xlim = None, ylim = None, 
                **kwargs):
@@ -133,10 +144,12 @@ class PlotCoordinates(Coordinates):
         d = self.get_imshow_kwargs()
         d.update(kwargs)
 
-        extent = [-self.height/2*1000, self.height/2*1000, -self.width/2*1000, self.width/2*1000]  # width and height in mm
-        ax.imshow(data, extent=extent,  **d)
-        ax.set_xlabel("x (mm)")
-        ax.set_ylabel("y (mm)")
+        scale = self.get_unit_scale()
+        extent = [-self.height/2/scale, self.height/2/scale, -self.width/2/scale, self.width/2/scale]  # width and height in imshow_units
+        im = ax.imshow(data, extent=extent,  **d)
+        ax.set_xlabel(f"x ({self.imshow_units})")
+        ax.set_ylabel(f"y ({self.imshow_units})")
+        return im
     
 class FieldPlane(PlotCoordinates):
     def get_r_phi(self):
