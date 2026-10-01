@@ -185,8 +185,6 @@ class ParticleSimulator:
     def compute_lut(self):
         self.compute_scattering_coefficients()
         self.compute_modal_coefficient()
-        if self.simulator_dof is not None:
-            self.set_simulator_dof(self.simulator_dof)
         return self.simulator_mask, self.modes
 
     def compute_reciprocal_field(self):
@@ -209,7 +207,7 @@ class ParticleSimulator:
         field = self.compute_reciprocal_field()
         return self.microscope.compute_image(field, fft_input = True)
 
-def create_simulator(microscope, particles, simulator_numerical_aperture = None, focal_plane = 200e-6, simulator_dof = np.nan, monodisperse_particles = False):
+def create_simulator(microscope, particles, simulator_numerical_aperture = None, focal_plane = 200e-6, simulator_dof = np.inf, monodisperse_particles = False):
     return ParticleSimulator(microscope=microscope, particles=particles, simulator_numerical_aperture=simulator_numerical_aperture, focal_plane=focal_plane, simulator_dof=simulator_dof, monodisperse_particles=monodisperse_particles)    
 
 __all__ = ["ParticleSimulator", "create_simulator"]
