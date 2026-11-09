@@ -85,6 +85,19 @@ def mx_compile_out(func):
         return out
     return wrapper
 
+def mx_out(func):
+    def wrapper(*args, **kwargs):
+        if 'out' in kwargs:
+            out = kwargs.pop('out')
+        else:
+            out = None
+        if out is not None:
+            out[:] = func(*args, **kwargs)[:]
+        else:
+            out = func(*args, **kwargs)
+        return out
+    return wrapper
+
 if USENUMBA:
     vectorize = nb.vectorize
     guvectorize = nb.guvectorize

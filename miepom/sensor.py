@@ -2,7 +2,7 @@
 In the future, this module may be extended to include additional sensor types, such as color sensors and polarizing sensors."""
 
 
-from .config import USENUMBA, nbfloat, nbcomplex, nbuint, NBFASTMATH, NBTARGET, fdtype, vectorize, guvectorize, jit, njit, mx_compile, mx_compile_out
+from .config import USENUMBA, nbfloat, nbcomplex, nbuint, NBFASTMATH, NBTARGET, fdtype, vectorize, guvectorize, jit, njit, mx_compile, mx_compile_out, mx_out
 import numpy as np
 from .utils import print_line
 from .plane import FieldPlane
@@ -111,7 +111,7 @@ def __sensor_image_mx(im, transmittance = 1.0, adcbit = DEFAULT_ADCBIT, full_wel
         im/= full_well_capacity
     return im
 
-_sensor_image_mx = mx_compile_out(__sensor_image_mx)
+_sensor_image_mx = mx_out(__sensor_image_mx)
 
 def _sensor_image_xp(im, transmittance = 1.0, adcbit = DEFAULT_ADCBIT, full_well_capacity = DEFAULT_FULL_WELL_CAPACITY, flags = 0, out = None):
     im = np.multiply(im, transmittance, out = out)
