@@ -12,7 +12,7 @@ setup(
     description="A python library for simulating Polarizing Optical Microscopy of Mie scatterers",
     long_description=README,
     long_description_content_type="text/markdown",
-    author="andrej5elin",
+    author="Andrej Petelin",
     license="MIT",
     packages=find_packages(),
     include_package_data=True,
