@@ -1,7 +1,13 @@
 """This module contains classes and functions for simulating Mie scattering by spherical particles.
 """
 
-import miepython as mie
+try:
+    import miepython as mie
+    USE_RAYLEIGH_ONLY = False
+except ImportError:
+    print("The 'miepython' library is required for this module to function properly. Please install it via 'pip install miepython'. Only Rayleigh scattering will be available.")
+    USE_RAYLEIGH_ONLY = True
+
 import numpy as np
 from .config import FDTYPE, CDTYPE, VECTORIZED_MIE
 from .utils import print_progress
@@ -16,7 +22,37 @@ DEFAULT_SAMPLE_WIDTH = 100e-6
 
 ez = np.array([0,0,1], FDTYPE)
 
-def compute_scattering_coefficient(diameter, n_particle = 1.0, wavelength = 550e-9, si = ez, sf = ez, n_medium = DEFAULT_MEDIUM_REFRACTIVE_INDEX):
+def rayleigh_S1_S2(m,x,mu):
+    """
+    Calculate the scattering amplitude functions for small spheres.
+
+    Based on equation 5.4 in Bohren and Huffman
+
+    The amplitude functions are normalized so that when integrated
+    over all 4*pi solid angles, the integral will be qext*pi*x**2.
+
+    The units are weird, sr**(-0.5)
+
+    Args:
+        m: the complex index of refraction of the sphere
+        x: the size parameter of the sphere
+        mu: the angles, cos(theta), to calculate scattering amplitudes
+
+    Returns:
+        S1, S2: the scattering amplitudes at each angle mu [sr**(-0.5)]
+    """
+
+    a1 = (2*x**3)/3 * (m**2-1)/(m**2+2)*1j
+    a1 += (2*x**5)/5 * (m**2-2)*(m**2-1)/(m**2+2)**2 *1j
+
+    s1 = (3/2)*a1[:,None] * np.ones_like(mu)
+    s2 = (3/2)*a1[:,None] * mu
+
+    factor = np.sqrt(np.pi)*x[:,None]  #qscat norm
+
+    return s1/factor, s2/factor
+
+def compute_scattering_coefficient(diameter, n_particle = 1.0, wavelength = 550e-9, si = ez, sf = ez, n_medium = DEFAULT_MEDIUM_REFRACTIVE_INDEX, use_rayleigh = False):
     # convert scattering and incident directions to arrays
     sf = np.asarray(sf, FDTYPE)
     si = np.asarray(si, FDTYPE)
@@ -38,7 +74,10 @@ def compute_scattering_coefficient(diameter, n_particle = 1.0, wavelength = 550e
     m = n / n_medium 
     m = np.asarray(m, CDTYPE)
     # computes mie coefficients 
-    s1, s2 = mie.S1_S2(m, x, mu, norm = "qsca")
+    if use_rayleigh:
+        s1, s2 = rayleigh_S1_S2(m, x, mu)
+    else:
+        s1, s2 = mie.S1_S2(m, x, mu, norm = "qsca")
 
     ssum = (s1+s2)/2.
 
@@ -108,16 +147,16 @@ class MieParticles:
         if monodisperse :
             diameter = np.mean(diameter)
             n = np.mean(n)
-            out = compute_scattering_coefficient(diameter = diameter, n_particle= n, wavelength = wavelength, si = si, sf = sf, n_medium = n_medium)
+            out = compute_scattering_coefficient(diameter = diameter, n_particle= n, wavelength = wavelength, si = si, sf = sf, n_medium = n_medium, use_rayleigh = USE_RAYLEIGH_ONLY)
 
         else:
             if VECTORIZED_MIE:
-                out = compute_scattering_coefficient(diameter = diameter, n_particle= n, wavelength = wavelength, si = si, sf = sf, n_medium = n_medium)
+                out = compute_scattering_coefficient(diameter = diameter, n_particle= n, wavelength = wavelength, si = si, sf = sf, n_medium = n_medium, use_rayleigh = USE_RAYLEIGH_ONLY)
             else:
                 out = []
                 for i, (d, ni) in enumerate(zip(diameter, n)):
                     print_progress(i, self.count)
-                    out.append(compute_scattering_coefficient(diameter = d, n_particle= ni, wavelength = wavelength, si = si, sf = sf, n_medium = n_medium))
+                    out.append(compute_scattering_coefficient(diameter = d, n_particle= ni, wavelength = wavelength, si = si, sf = sf, n_medium = n_medium, use_rayleigh = USE_RAYLEIGH_ONLY))
                 print_progress(self.count, self.count)
                 out = np.array(out)
         return out
@@ -195,7 +234,39 @@ class MieParticles:
         ax.set_zlabel("z (µm)")
         fig.colorbar(scatter, ax=ax, label="z (µm)")
 
+class RayleighParticles(MieParticles):
+    def compute_scattering_coefficients(self, wavelength = 550e-9, si = ez, sf = ez, monodisperse = False):
+        """Compute the scattering coefficients for the particles.
 
+        Parameters
+        ----------
+        wavelength : float
+            Wavelength of the incident light in meters.
+        si : array_like
+            Incident wave vector direction.
+        sf : array_like
+            Scattered wave vector direction.
+        monodisperse : bool
+            If True, use the mean diameter and refractive index for all particles.
+
+        Returns
+        -------
+        out : array_like
+            Scattering coefficients for the particles.
+        """
+        diameter = self.diameter
+        n = self.n_particle
+        n_medium = self.n_medium
+
+        if monodisperse :
+            diameter = np.mean(diameter)
+            n = np.mean(n)
+            out = compute_scattering_coefficient(diameter = diameter, n_particle= n, wavelength = wavelength, si = si, sf = sf, n_medium = n_medium, use_rayleigh = True)
+
+        else:
+            out = compute_scattering_coefficient(diameter = diameter, n_particle= n, wavelength = wavelength, si = si, sf = sf, n_medium = n_medium, use_rayleigh = True)
+        
+        return out    
 
 def create_mie_particles(count, diameter = DEFAULT_PARTICLE_DIAMETER, n_particle = DEFAULT_PARTICLE_REFRACTIVE_INDEX, n_medium = DEFAULT_MEDIUM_REFRACTIVE_INDEX, coordinates = None):
     particles = MieParticles(count = count, diameter = diameter, n_particle = n_particle, n_medium = n_medium)
@@ -203,4 +274,10 @@ def create_mie_particles(count, diameter = DEFAULT_PARTICLE_DIAMETER, n_particle
         particles.set_coordinates(coordinates)
     return particles
 
-__all__ = ["MieParticles", "create_mie_particles"]
+def create_rayleigh_particles(count, diameter = DEFAULT_PARTICLE_DIAMETER, n_particle = DEFAULT_PARTICLE_REFRACTIVE_INDEX, n_medium = DEFAULT_MEDIUM_REFRACTIVE_INDEX, coordinates = None):
+    particles = RayleighParticles(count = count, diameter = diameter, n_particle = n_particle, n_medium = n_medium)
+    if coordinates is not None:
+        particles.set_coordinates(coordinates)
+    return particles
+
+__all__ = ["MieParticles", "create_mie_particles", "RayleighParticles", "create_rayleigh_particles"]
