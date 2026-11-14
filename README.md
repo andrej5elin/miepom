@@ -8,18 +8,16 @@ A python library for simulating Polarizing Optical Microscopy of Mie scatterers 
 ## Installation
 
 Requires Python 3.9 or later. Install miepom and its required dependencies from
-the repository:
+PyPI:
 
 ```bash
-git clone https://github.com/andrej5elin/miepom.git
-cd miepom
-python -m pip install .
+python -m pip install miepom
 ```
 
 Optional backend dependencies can be installed with extras, for example:
 
 ```bash
-python -m pip install '.[numba]'
+python -m pip install 'miepom[numba]'
 ```
 
 Available extras are `cupy`, `mlx`, `numba`, and `scipy`.
