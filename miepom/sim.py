@@ -134,7 +134,10 @@ class ParticleSimulator:
                 # make these array numpy arrays first so that we can use numpy indexing, which may not be supported in current array backend
                 mask = get_array(xp.abs(self.z) <= dof/2.)
                 modes_np = get_array(self.modes)
-                self.modes_dof = xp.array(modes_np[mask])
+                if self.monodisperse_particles:
+                    self.modes_dof = xp.array([modes_np]*mask.sum())
+                else:
+                    self.modes_dof = xp.array(modes_np[mask])
                 self.simulator_dof_mask = mask
         else:
             self.simulator_dof_mask = None
