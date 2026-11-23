@@ -49,6 +49,7 @@ def propagate_modes_mono(modes,xi,xj,z,k,ki,kj,kz,dq,dk):
         return propagate_modes_xp(modes,xi,xj,z,k,ki,kj,kz,dq,dk)
 
 def compute_e_field(mask, modes, out = None):
+    print(mask.shape, modes.shape)
     out = linalg.unpack(mask,modes)
     out[0,0] += xp.sqrt(mask.shape[0]*mask.shape[1])
     return out
