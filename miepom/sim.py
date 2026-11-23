@@ -30,6 +30,10 @@ def propagate_modes_xp(modes,xi,xj,z,k,ki,kj,kz,dq,dk):
     out = _propagate_modes_xp(modes,xi[:,None],xj[:,None],z[:,None],k,ki,kj,kz,dq,dk).sum(axis = 0)
     return out
 
+def propagate_modes_mono_xp(modes,xi,xj,z,k,ki,kj,kz,dq,dk):
+    out = _propagate_modes_xp(modes[None,:],xi[:,None],xj[:,None],z[:,None],k,ki,kj,kz,dq,dk).sum(axis = 0)
+    return out
+
 def propagate_modes(modes,xi,xj,z,k,ki,kj,kz,dq,dk):
     if xp.__name__ == 'mlx.core':
         return propagate_modes_mx(modes,xi,xj,z,k,ki,kj,kz,dq,dk)
@@ -46,10 +50,9 @@ def propagate_modes_mono(modes,xi,xj,z,k,ki,kj,kz,dq,dk):
     if xp.__name__ == 'mlx.core':
         return propagate_modes_mono_mx(modes,xi,xj,z,k,ki,kj,kz,dq,dk)
     else:
-        return propagate_modes_xp(modes,xi,xj,z,k,ki,kj,kz,dq,dk)
+        return propagate_modes_mono_xp(modes,xi,xj,z,k,ki,kj,kz,dq,dk)
 
 def compute_e_field(mask, modes, out = None):
-    print(mask.shape, modes.shape)
     out = linalg.unpack(mask,modes)
     out[0,0] += xp.sqrt(mask.shape[0]*mask.shape[1])
     return out
@@ -136,8 +139,7 @@ class ParticleSimulator:
                 mask = get_array(xp.abs(self.z) <= dof/2.)
                 modes_np = get_array(self.modes)
                 if self.monodisperse_particles:
-                    modes_dof = np.asarray([modes_np]*mask.sum())
-                    self.modes_dof = xp.array(modes_dof)
+                    self.modes_dof = xp.array(modes_np)
                 else:
                     self.modes_dof = xp.array(modes_np[mask])
                 self.simulator_dof_mask = mask
