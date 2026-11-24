@@ -77,7 +77,14 @@ def compute_scattering_coefficient(diameter, n_particle = 1.0, wavelength = 550e
     if use_rayleigh:
         s1, s2 = rayleigh_S1_S2(m, x, mu)
     else:
-        s1, s2 = mie.S1_S2(m, x, mu, norm = "qsca")
+        if VECTORIZED_MIE:
+            s1, s2 = mie.S1_S2(m, x, mu, norm = "qsca")
+        else:
+            # classic mie does not support vectorized inputs, so we convert to scalar types, also it does not support single precision
+            s1, s2 = mie.S1_S2(complex(m), float(x), mu, norm = "qsca")
+            # convert from double precision to the desired complex dtype
+            s1 = np.asarray(s1, CDTYPE)
+            s2 = np.asarray(s2, CDTYPE)
 
     ssum = (s1+s2)/2.
 
