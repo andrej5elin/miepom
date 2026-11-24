@@ -8,7 +8,7 @@ README = Path(__file__).with_name("README.md").read_text(encoding="utf-8")
 
 setup(
     name="miepom",
-    version="0.2.1",
+    version="0.2.2",
     description="A python library for simulating Polarizing Optical Microscopy of Mie scatterers",
     long_description=README,
     long_description_content_type="text/markdown",
